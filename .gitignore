@@ -1,0 +1,34 @@
+# Secrets
+.env
+.env.example
+.env.local
+.env.*.local
+token.json
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+apps/*/dist/
+
+# Terraform state (contains resource IDs and potentially secrets)
+infra/.terraform/
+infra/.terraform.lock.hcl
+infra/terraform.tfstate
+infra/terraform.tfstate.backup
+infra/*.tfvars
+infra/override.tf
+infra/override.tf.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

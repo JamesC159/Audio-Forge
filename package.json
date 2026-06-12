@@ -1,0 +1,27 @@
+{
+  "name": "audio-forge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Audio generation platform — portfolio demo showcasing production patterns",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w apps/api\" \"npm run dev -w apps/web\"",
+    "build": "npm run build -w apps/api && npm run build -w apps/web",
+    "lint": "eslint apps packages --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "docker:up": "docker compose up -d --build",
+    "docker:down": "docker compose down",
+    "build:lambda": "npm run build -w apps/lambda && cd apps/lambda/dist && zip -r ../../../dist/lambda.zip . && cd ../../.."
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "concurrently": "^8.2.2",
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
