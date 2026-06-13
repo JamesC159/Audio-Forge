@@ -2,6 +2,7 @@
 
 resource "aws_s3_bucket" "audio" {
   bucket = "${local.name_prefix}-audio"
+  force_destroy = true # Caution: allows bucket to be deleted even if not empty
 }
 
 resource "aws_s3_bucket_versioning" "audio" {

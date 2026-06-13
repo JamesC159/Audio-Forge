@@ -6,6 +6,7 @@ Portfolio demo app — production patterns for senior platform/full-stack engine
 
 | Area | Pattern | File |
 |------|---------|------|
+| AI | Two-stage generation: Claude (prompt enhancement) → ElevenLabs (MP3 synthesis) | `apps/api/src/services/aiService.ts` |
 | System Design | Async BullMQ/Redis job queue with SQS bridge for Lambda in prod | `apps/api/src/queue/audioQueue.ts` |
 | System Design | Typed circuit breaker (CLOSED → OPEN → HALF_OPEN) | `apps/api/src/queue/circuitBreaker.ts` |
 | Node.js/API | Layered architecture (router → controller → service → repository) | `apps/api/src/routes/`, `controllers/`, `services/`, `repositories/` |
@@ -22,6 +23,13 @@ Portfolio demo app — production patterns for senior platform/full-stack engine
 ## Local dev
 
 **Prerequisites:** Node 20+, Docker Desktop (with WSL integration enabled on Windows)
+
+**Required API keys** (add to `.env`):
+
+| Variable | Where to get it |
+| -------- | --------------- |
+| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) |
+| `ELEVENLABS_API_KEY` | ElevenLabs dashboard → Profile → API Keys |
 
 ```bash
 # Copy env template and fill in your values
@@ -77,15 +85,26 @@ Copy `sqs_queue_url` and `audio_bucket_name` into your `.env` after apply.
 ```text
 Web (React)  →  API (Express/BullMQ)  →  Redis (local queue)
                         │
+               BullMQ worker picks up job
+                        │
+               Claude (prompt enhance)
+                        │
+               ElevenLabs (MP3 synthesis)
+                        │
+                    S3 upload
+                        │
                     SQS_QUEUE_URL set?
-                        │ yes
+                        │ yes (prod path)
                         ↓
-                  SQS Queue  →  Lambda  →  S3
+              SQS Queue  →  Lambda  →  S3
 ```
 
-In dev, the BullMQ worker embedded in the API process handles jobs. When `SQS_QUEUE_URL` is set, `enqueue()` also fires a message to SQS so the Lambda consumer picks it up in production. SQS failures are non-fatal — logged as warnings, BullMQ handles locally.
+In dev, the BullMQ worker embedded in the API process handles jobs end-to-end: it calls Claude to enrich the user prompt, then calls ElevenLabs to synthesize a real MP3, then uploads to S3. When `SQS_QUEUE_URL` is set, `enqueue()` also fires a message to SQS so the Lambda consumer handles it independently in production — the Lambda runs the same two-stage AI pipeline using raw `fetch` to keep its bundle small. SQS failures are non-fatal — logged as warnings, BullMQ handles locally.
 
 ## Key talking points (interview reference)
+
+**On the AI generation pipeline:**
+Two-stage design: Claude (`claude-haiku-4-5-20251001`) rewrites the user's freeform prompt into technically rich audio-engineering language before it hits ElevenLabs. This improves output quality without requiring users to know prompt-engineering syntax, and it decouples the LLM from the synthesis provider — swapping ElevenLabs for another service only touches `aiService.ts`. The Lambda path uses raw `fetch` for both APIs to avoid adding the Anthropic SDK to the Lambda bundle, keeping cold starts lean.
 
 **On the queue design:**
 Dual-path enqueue — BullMQ for local dev (no AWS needed), SQS bridge for Lambda in prod. The SQS send is fire-and-forget so a cloud outage never 500s the HTTP response. Jobs persist in the in-memory repository immediately, so clients can poll status before the worker even starts.

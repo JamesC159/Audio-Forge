@@ -11,12 +11,68 @@ interface AudioJobPayload {
   durationSec: number;
 }
 
+async function enhancePrompt(prompt: string, durationSec: number): Promise<string> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) return prompt; // fall back to original if key missing
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 300,
+      messages: [{
+        role: "user",
+        content:
+          `You are an expert audio engineer writing prompts for an AI sound-effects generator. ` +
+          `Rewrite the following prompt to be vivid, specific, and technically descriptive — ` +
+          `include texture, spatiality, dynamics, and timbral qualities. ` +
+          `Target duration: ${durationSec} second(s). Keep the rewrite under 400 characters. ` +
+          `Respond with ONLY the enhanced prompt text, nothing else.\n\nOriginal: ${prompt}`,
+      }],
+    }),
+  });
+
+  if (!res.ok) return prompt;
+  const json = await res.json() as { content: Array<{ type: string; text: string }> };
+  return json.content[0]?.text?.trim() ?? prompt;
+}
+
+async function generateAudio(prompt: string, durationSec: number): Promise<Buffer> {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) throw new Error("ELEVENLABS_API_KEY is not set");
+
+  const duration = Math.min(Math.max(durationSec, 0.5), 22);
+
+  const res = await fetch("https://api.elevenlabs.io/v1/sound-generation", {
+    method: "POST",
+    headers: {
+      "xi-api-key": apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ text: prompt, duration_seconds: duration, prompt_influence: 0.3 }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`ElevenLabs ${res.status}: ${body}`);
+  }
+
+  return Buffer.from(await res.arrayBuffer());
+}
+
 async function processRecord(payload: AudioJobPayload): Promise<void> {
   const { jobId, userId, prompt, durationSec } = payload;
   const s3Key = `audio/${userId}/${jobId}.mp3`;
 
-  // Replace with real audio generation (e.g. Suno, ElevenLabs)
-  const audioBuffer = Buffer.from(`AUDIO:${prompt}:${durationSec}s`);
+  const enhancedPrompt = await enhancePrompt(prompt, durationSec);
+  console.log(JSON.stringify({ level: "info", jobId, enhancedPrompt, msg: "Prompt enhanced" }));
+
+  const audioBuffer = await generateAudio(enhancedPrompt, durationSec);
 
   await s3.send(new PutObjectCommand({
     Bucket: BUCKET,

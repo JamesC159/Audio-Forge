@@ -13,13 +13,13 @@ dist/
 apps/*/dist/
 
 # Terraform state (contains resource IDs and potentially secrets)
-infra/.terraform/
-infra/.terraform.lock.hcl
-infra/terraform.tfstate
-infra/terraform.tfstate.backup
-infra/*.tfvars
-infra/override.tf
-infra/override.tf.json
+**/.terraform/
+**/.terraform.lock.hcl
+**/terraform.tfstate
+**/terraform.tfstate.backup
+**/*.tfvars
+**/override.tf
+**/override.tf.json
 
 # Logs
 *.log

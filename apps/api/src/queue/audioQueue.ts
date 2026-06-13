@@ -4,6 +4,7 @@ import { SQSClient, SendMessageCommand } from "@aws-sdk/client-sqs";
 import { logger, logMetric } from "../logging/logger.js";
 import { audioRepository } from "../repositories/audioRepository.js";
 import { CircuitBreaker } from "./circuitBreaker.js";
+import { enhanceAudioPrompt, generateAudio } from "../services/aiService.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -76,20 +77,18 @@ async function processAudioJob(job: Job<AudioJobPayload>) {
   await audioRepository.updateStatus(jobId, { status: "processing" });
 
   try {
-    // ── REPLACE with real AI audio generation call ──────────────────────────
-    // e.g. await suno.generate({ prompt, durationSec })
-    // Simulated latency for demo:
     await job.updateProgress(10);
-    await new Promise((r) => setTimeout(r, 1000));
-    await job.updateProgress(60);
-    await new Promise((r) => setTimeout(r, 500));
-    await job.updateProgress(90);
+    const enhancedPrompt = await enhanceAudioPrompt(prompt, durationSec);
+    logger.info({ jobId, enhancedPrompt }, "Prompt enhanced by Claude");
 
-    const fakeAudioBuffer = Buffer.from(`AUDIO:${prompt}:${durationSec}s`);
+    await job.updateProgress(40);
+    const audioBuffer = await generateAudio(enhancedPrompt, durationSec);
+    await job.updateProgress(80);
+
     const s3Key = `audio/${userId}/${jobId}.mp3`;
 
     // Upload through circuit breaker — fast-fails if S3 is degraded
-    await s3CircuitBreaker.call(s3Key, fakeAudioBuffer);
+    await s3CircuitBreaker.call(s3Key, audioBuffer);
 
     await audioRepository.updateStatus(jobId, {
       status: "completed",
