@@ -1,6 +1,6 @@
 # audio-forge
 
-Portfolio demo app — production patterns for senior platform/full-stack engineering interviews.
+Demo production patterns for senior platform/full-stack engineering.
 
 ## What's in here
 
