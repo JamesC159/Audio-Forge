@@ -99,10 +99,9 @@ Web (React)  →  API (Express/BullMQ)  →  Redis (local queue)
               SQS Queue  →  Lambda  →  S3
 ```
 
-In dev, the BullMQ worker embedded in the API process handles jobs end-to-end: it calls Claude to enrich the user prompt, then calls ElevenLabs to synthesize a real MP3, then uploads to S3. When `SQS_QUEUE_URL` is set, `enqueue()` also fires a message to SQS so the Lambda consumer handles it independently in production — the Lambda runs the same two-stage AI pipeline using raw `fetch` to keep its bundle small. SQS failures are non-fatal — logged as warnings, BullMQ handles locally.
+In dev, the BullMQ worker embedded in the API process handles jobs end-to-end: it calls Claude to enrich the user prompt, then calls ElevenLabs to synthesize a real MP3, then uploads to S3. When `SQS_QUEUE_URL` is set, `enqueue()` also fires a message to SQS so the Lambda consumer handles it independently in production — the Lambda runs the same two-stage AI pipeline using raw `fetch` to keep its bundle small. SQS failures are non-fatal — logged as warnings, BullMQ handles locally. THIS IS A SIMPLE FRONT TO BACK ROTATION OF OPTIONS AVAILABLE. NOT A BEST-PRACTICES GUIDELINE.
 
 ## Key talking points (interview reference)
-
 **On the AI generation pipeline:**
 Two-stage design: Claude (`claude-haiku-4-5-20251001`) rewrites the user's freeform prompt into technically rich audio-engineering language before it hits ElevenLabs. This improves output quality without requiring users to know prompt-engineering syntax, and it decouples the LLM from the synthesis provider — swapping ElevenLabs for another service only touches `aiService.ts`. The Lambda path uses raw `fetch` for both APIs to avoid adding the Anthropic SDK to the Lambda bundle, keeping cold starts lean.
 
